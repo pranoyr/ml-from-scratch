@@ -18,8 +18,6 @@ class LogisticRegression(nn.Module):
         # x  -> [B, F]
         # W -> [F, 1]
 
-
-        # broad cast weights and bias to match the batch size
         w  = rearrange(self.weights, 'f -> f 1')
         b = rearrange(self.bias, 'd -> 1 d')
         z = torch.einsum('i j, j k -> i k', x, w) + b
