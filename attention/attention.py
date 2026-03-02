@@ -43,6 +43,6 @@ class Attention(nn.Module):
 
 if __name__ == "__main__":
     x = torch.randn(2, 5, 16)  # [B, N, D]
-    attention = Attention(dim=512, heads=8gi, dim_head=64)
+    attention = Attention(dim=512, heads=8, dim_head=64)
     output = attention(x)
     print(output.shape) 
