@@ -42,9 +42,8 @@ class Attention(nn.Module):
         k = rearrange(k, 'b n (h d) -> b h n d', h = self.heads)
         v = rearrange(v, 'b n (h d) -> b h n d', h = self.heads)
 
-        dots = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
-        attn = dots.softmax(dim=-1)
-
+        attn = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
+    
         if exist(context_mask):
             context_mask = rearrange(context_mask, 'b n -> b 1 1 n')
             attn = attn.masked_fill(~context_mask, self.neg_inf)
@@ -54,6 +53,7 @@ class Attention(nn.Module):
             causal_mask = rearrange(causal_mask, 'i j -> 1 1 i j')
             attn = attn.masked_fill(~causal_mask, self.neg_inf)
 
+        attn = attn.softmax(dim=-1)
         out = torch.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
