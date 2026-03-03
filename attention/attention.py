@@ -38,6 +38,7 @@ class Attention(nn.Module):
             j = context.shape[1]
         else:
             k, v = self.to_kv(x).chunk(2, dim=-1)
+            j = i
 
         q = rearrange(q, 'b n (h d) -> b h n d', h = self.heads)
         k = rearrange(k, 'b n (h d) -> b h n d', h = self.heads)
