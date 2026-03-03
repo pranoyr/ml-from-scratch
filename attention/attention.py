@@ -77,5 +77,5 @@ if __name__ == "__main__":
     print("Self-Attention Output Shape:", context.shape)  
 
     # Cross-Attention
-    cross_attn_output = cross_attn(x, context=context, causal_mask=True)
+    cross_attn_output = cross_attn(x, context=context, context_mask=mask)
     print("Cross-Attention Output Shape:", cross_attn_output.shape)
