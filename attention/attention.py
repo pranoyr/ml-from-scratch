@@ -28,13 +28,14 @@ class Attention(nn.Module):
         self.neg_inf = float('-inf')
 
     def forward(self, x, context=None, context_mask=None, causal_mask=False):
-        b, n, _ = x.shape
+        b, i, _ = x.shape
 
         q = self.to_q(x)
 
         # for cross-attn
         if exist(context):
             k, v = self.to_kv(context).chunk(2, dim=-1)
+            j = context.shape[1]
         else:
             k, v = self.to_kv(x).chunk(2, dim=-1)
 
@@ -49,7 +50,7 @@ class Attention(nn.Module):
             attn = attn.masked_fill(~context_mask, self.neg_inf)
 
         if causal_mask:
-            causal_mask = torch.tril(torch.ones(n, n, device=x.device)).bool()
+            causal_mask = torch.tril(torch.ones(i, j, device=x.device)).bool()
             causal_mask = rearrange(causal_mask, 'i j -> 1 1 i j')
             attn = attn.masked_fill(~causal_mask, self.neg_inf)
 
@@ -65,7 +66,7 @@ if __name__ == "__main__":
     mask = torch.randint(0, 2, (2, 5)).bool()  # [B, N]
 
     # for cross-attention
-    x = torch.randn(2, 5, 512)  # [B, N, D]
+    x = torch.randn(2, 10, 512)  # [B, N, D]
 
     self_attn = Attention(dim=512, heads=8, dim_head=64)
     cross_attn = Attention(dim=512, heads=8, dim_head=64)
