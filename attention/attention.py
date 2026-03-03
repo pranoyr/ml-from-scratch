@@ -21,12 +21,22 @@ class Attention(nn.Module):
         self.heads = heads
         self.scale = dim_head ** -0.5
 
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_kv = nn.Linear(dim, inner_dim * 2, bias = False)  # for k and v
         self.to_out = nn.Linear(inner_dim, dim)
 
-    def forward(self, x, mask = None):
+        self.neg_inf = float('-inf')
+
+    def forward(self, x, context=None, context_mask=None, causal_mask=False):
         b, n, _ = x.shape
-        q, k, v = self.to_qkv(x).chunk(3, dim=-1)
+
+        q = self.to_q(x)
+
+        # for cross-attn
+        if exist(context):
+            k, v = self.to_kv(context).chunk(2, dim=-1)
+        else:
+            k, v = self.to_kv(x).chunk(2, dim=-1)
 
         q = rearrange(q, 'b n (h d) -> b h n d', h = self.heads)
         k = rearrange(k, 'b n (h d) -> b h n d', h = self.heads)
@@ -35,9 +45,14 @@ class Attention(nn.Module):
         dots = torch.einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
         attn = dots.softmax(dim=-1)
 
-        if exist(mask):
-            mask = rearrange(mask, 'b n -> b 1 1 n')
-            attn = attn.masked_fill(~mask, float('-inf'))
+        if exist(context_mask):
+            context_mask = rearrange(context_mask, 'b n -> b 1 1 n')
+            attn = attn.masked_fill(~context_mask, self.neg_inf)
+
+        if causal_mask:
+            causal_mask = torch.tril(torch.ones(n, n, device=x.device)).bool()
+            causal_mask = rearrange(causal_mask, 'i j -> 1 1 i j')
+            attn = attn.masked_fill(~causal_mask, self.neg_inf)
 
         out = torch.einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
@@ -45,11 +60,20 @@ class Attention(nn.Module):
     
 
 if __name__ == "__main__":
-    x = torch.randn(2, 5, 512)  # [B, N, D]
-
-    # attention mask
+    # for self-attention
+    context = torch.randn(2, 5, 512)  # [B, N, D]
     mask = torch.randint(0, 2, (2, 5)).bool()  # [B, N]
 
-    attention = Attention(dim=512, heads=8, dim_head=64)
-    output = attention(x, mask=mask)
-    print(output.shape) 
+    # for cross-attention
+    x = torch.randn(2, 5, 512)  # [B, N, D]
+
+    self_attn = Attention(dim=512, heads=8, dim_head=64)
+    cross_attn = Attention(dim=512, heads=8, dim_head=64)
+
+    # Self-Attention
+    context = self_attn(context, context_mask=mask)
+    print("Self-Attention Output Shape:", context.shape)  
+
+    # Cross-Attention
+    cross_attn_output = cross_attn(x, context=context, context_mask=mask, causal_mask=True)
+    print("Cross-Attention Output Shape:", cross_attn_output.shape)
